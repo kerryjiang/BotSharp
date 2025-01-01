@@ -1,5 +1,6 @@
 namespace BotSharp.Plugin.MySQLChanges;
 
+using BotSharp.Abstraction.Agents;
 using BotSharp.Abstraction.Plugins;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +15,8 @@ public class MySQLChangesPlugin : IBotSharpPlugin
 
     public void RegisterDI(IServiceCollection services, IConfiguration config)
     {
-        throw new System.NotImplementedException();
+        services.AddSingleton<IBotSharpPlugin, MySQLChangesPlugin>();
+        services.AddSingleton<IAgentHook, MySQLChangesAgentHook>();
+        services.AddOptions<MySQLChangesPluginConfig>().Bind(config.GetSection(Name));
     }
 }
