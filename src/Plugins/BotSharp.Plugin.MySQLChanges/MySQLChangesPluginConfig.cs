@@ -12,6 +12,6 @@ public class MySQLChangesPluginConfig
 
         public string Password { get; set; }
 
-        public string ServerId { get; set; }
+        public int ServerId { get; set; }
     }
 }

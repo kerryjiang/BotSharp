@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
@@ -6,7 +7,9 @@ using System.Threading.Tasks;
 using BotSharp.Abstraction.Agents;
 using BotSharp.Abstraction.Agents.Models;
 using BotSharp.Abstraction.Agents.Settings;
+using BotSharp.Core.Infrastructures;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
 using SciSharp.MySQL.Replication;
 
 namespace BotSharp.Plugin.MySQLChanges;
@@ -15,31 +18,35 @@ internal class MySQLChangesAgentHook : AgentHookBase
 {
     private readonly MySQLChangesPluginConfig _mySqlChangesConfig;
 
+    private readonly IHostApplicationLifetime _hostApplicationLifetime;
+
     private readonly IEnumerable<IChangeDataCaptureHook> _changeDataCpatureHooks;
 
-    private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-
-    public MySQLChangesAgentHook(IServiceProvider services, AgentSettings settings, IOptions<MySQLChangesPluginConfig> mySqlChangesConfigOptions, IEnumerable<IChangeDataCaptureHook> changeDataCpatureHooks)
+    public MySQLChangesAgentHook(IServiceProvider services, AgentSettings settings, IOptions<MySQLChangesPluginConfig> mySqlChangesConfigOptions, IHostApplicationLifetime hostApplicationLifetime, IEnumerable<IChangeDataCaptureHook> changeDataCpatureHooks)
         : base(services, settings)
     {
-        _mySqlChangesConfig = mySqlChangesConfig;
+        _mySqlChangesConfig = mySqlChangesConfigOptions.Value;
+        _hostApplicationLifetime = hostApplicationLifetime;
         _changeDataCpatureHooks = changeDataCpatureHooks;
     }
 
     public override void OnAgentLoaded(Agent agent)
     {
-        _mySqlChangesConfig.Value.MySQLServers.ForEach(async mySQLServerConfig =>
+        var tasks = _mySqlChangesConfig.MySQLServers.Select(mySQLServerConfig =>
         {
-            await ConnectMySQLServerAsync(mySQLServerConfig, _cancellationTokenSource.Token);
+            return ConnectMySQLServerAsync(mySQLServerConfig, _hostApplicationLifetime.ApplicationStopping);
+        });
+
+        _ = Task.WhenAll(tasks).ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+            {
+                // Log the failure;
+            }
         });
     }
 
-    public override void OnAgentUnLoaded(Agent agent)
-    {
-        _cancellationTokenSource.Cancel();
-    }
-
-    private async Task ConnectMySQLServerAsync(MySQLServerConfig mySQLServerConfig, CancellationToken cancellationToken)
+    private async Task ConnectMySQLServerAsync(MySQLChangesPluginConfig.MySQLServerConfig mySQLServerConfig, CancellationToken cancellationToken)
     {
         var client = new ReplicationClient();
 
