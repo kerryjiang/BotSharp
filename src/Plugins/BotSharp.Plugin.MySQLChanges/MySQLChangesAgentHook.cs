@@ -69,19 +69,64 @@ internal class MySQLChangesAgentHook : AgentHookBase
         while (!cancellationToken.IsCancellationRequested)
         {
             var changeLog = await client.ReceiveAsync();
-            var chanegRecord = GetChangeRecord(changeLog);
+            var chanegRecords = GetChangeRecords(changeLog);
 
-            foreach (var hook in _changeDataCpatureHooks)
+            foreach (var chanegRecord in chanegRecords)
             {
-                await hook.OnChangeCaptured(chanegRecord);
+                foreach (var hook in _changeDataCpatureHooks)
+                {
+                    await hook.OnChangeCaptured(chanegRecord);
+                }
             }
         }
 
         await client.CloseAsync();
     }
 
-    private ChangeRecord GetChangeRecord(LogEvent logEvent)
+    private IEnumerable<ChangeRecord> GetChangeRecords(LogEvent logEvent)
     {
-        throw new NotImplementedException();
+        var changeEventType = GetChangeEventType(logEvent.EventType);
+
+        if (changeEventType == null || !(logEvent is RowsEvent rowsEvent))
+        {
+            yield break;
+        }
+
+        foreach (var row in rowsEvent.RowSet.Rows)
+        {
+            var fields = new Dictionary<string, object>();
+
+            for (var i = 0; i < row.Length; i++)
+            {
+                fields.Add(rowsEvent.RowSet.ColumnNames[i], row[i]);
+            }
+
+            yield return new ChangeRecord
+            {
+                EventType = changeEventType.Value,
+                Fields = fields
+            };
+        }
+    }
+
+    private ChangeEventType? GetChangeEventType(LogEventType logEventType)
+    {
+        switch (logEventType)
+        {
+            case LogEventType.WRITE_ROWS_EVENT:
+            case LogEventType.WRITE_ROWS_EVENT_V0:
+            case LogEventType.WRITE_ROWS_EVENT_V1:
+                return ChangeEventType.Added;
+            case LogEventType.UPDATE_ROWS_EVENT:
+            case LogEventType.UPDATE_ROWS_EVENT_V0:
+            case LogEventType.UPDATE_ROWS_EVENT_V1:
+                return ChangeEventType.Updated;
+            case LogEventType.DELETE_ROWS_EVENT:
+            case LogEventType.DELETE_ROWS_EVENT_V0:
+            case LogEventType.DELETE_ROWS_EVENT_V1:
+                return ChangeEventType.Deleted;
+            default:
+                return null;
+        }
     }
 }
