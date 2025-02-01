@@ -13,7 +13,7 @@ namespace UnitTest
         [TestMethod]
         public async Task TestMySqlChangesAgentHook()
         {
-            using var host = await Host.CreateDefaultBuilder()
+            using var host = Host.CreateDefaultBuilder()
                 .ConfigureServices(services =>
                 {
                     services.AddHostedService<AgentHostService>();
