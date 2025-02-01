@@ -28,7 +28,7 @@ jobs:
                 dotnet clean ./BotSharp.sln --configuration Release
                 dotnet nuget locals all --clear
             - name: Build
-              run: dotnet build -c Debug
+              run: dotnet build ./BotSharp.sln -c Debug
             - name: Run MySQL
               run: |
                 cp tests/UnitTest/mysql.cnf ~/.my.cnf
