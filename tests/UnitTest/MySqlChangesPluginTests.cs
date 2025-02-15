@@ -23,9 +23,10 @@ namespace UnitTest
                 .ToArray();
 
             using var host = Host.CreateDefaultBuilder()
-                .ConfigureServices(services =>
+                .ConfigureServices((services, context) =>
                 {
                     services.AddHostedService<AgentHostService>();
+                    services.UseMySQLChangesPlugin(context.Configuration);
                     services.AddSingleton<IBotSharpPlugin, MySQLChangesPlugin>();
 
                     foreach (var hook in hooks)
